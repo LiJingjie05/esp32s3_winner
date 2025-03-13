@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "lvgl.h": "c",
+        "ui.h": "c",
+        "stdio.h": "c",
+        "freertos.h": "c",
+        "task.h": "c",
+        "*.tcc": "c",
+        "ctime": "c",
+        "ui_events.h": "c"
+    }
+}

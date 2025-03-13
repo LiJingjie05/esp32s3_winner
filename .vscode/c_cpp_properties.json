@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "ESP32S3",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "~/esp/esp-idf/components/**",
+                "~/esp/esp-idf/examples/**"
+            ],
+            "defines": [
+                "ESP32C3"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
