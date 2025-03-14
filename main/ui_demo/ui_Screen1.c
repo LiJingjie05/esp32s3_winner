@@ -36,8 +36,16 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_width(first_page.week, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(first_page.week, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(first_page.week, LV_ALIGN_CENTER);
-    lv_label_set_text(first_page.week, "周三\n天气: 晴");
+    lv_label_set_text(first_page.week, "周三");
     // lv_obj_set_style_text_align(first_page.year, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(first_page.week, &font_alipuhui20, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    first_page.xiaoji = lv_label_create(first_page.base.screen);
+    lv_obj_set_width(first_page.xiaoji, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(first_page.xiaoji, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(first_page.xiaoji, LV_ALIGN_CENTER);
+    lv_label_set_text(first_page.xiaoji, "人间四月天");
+    // lv_obj_set_style_text_align(first_page.year, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(first_page.xiaoji, &font_alipuhui20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
 }

@@ -8,7 +8,7 @@
 
 struct s_page winner_page;
 
-void ui_member_init(lv_obj_t *parent, lv_obj_t ***mem_arc, lv_obj_t ***mem_name, lv_obj_t ***mem_value, lv_event_cb_t event_cb, lv_color_t color, const char *name)
+void ui_member_init(lv_obj_t *parent, lv_obj_t **mem_arc, lv_obj_t **mem_name, lv_obj_t **mem_value, lv_event_cb_t event_cb, lv_color_t color, const char *name)
 {
     *mem_arc = lv_arc_create(parent);
     lv_obj_set_width(*mem_arc, 100);

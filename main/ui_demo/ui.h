@@ -27,6 +27,8 @@ struct f_page
     lv_obj_t * year;
     lv_obj_t * week;
     lv_obj_t * weather;
+    lv_obj_t * xiaoji;
+
 };
 
 typedef struct s_show

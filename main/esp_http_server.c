@@ -115,6 +115,64 @@ static const httpd_uri_t echo = {
     .user_ctx  = NULL
 };
 
+static esp_err_t xiaoji_post_handler(httpd_req_t *req) {
+    char buf[BUFFER_SIZE];
+    int total_len = req->content_len;
+    int received = 0;
+    if (total_len >= BUFFER_SIZE) {
+        ESP_LOGE(TAG, "Request content too large");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Content too large");
+        return ESP_FAIL;
+    }
+
+    while (received < total_len) {
+        int ret = httpd_req_recv(req, buf + received, total_len - received);
+        if (ret <= 0) {
+            ESP_LOGE(TAG, "Error receiving data");
+            return ESP_FAIL;
+        }
+        received += ret;
+    }
+    buf[received] = '\0'; // Null-terminate the received string
+     // 解析JSON
+    cJSON *root = cJSON_Parse(buf);
+    if (root == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            ESP_LOGE(TAG, "Error before: %s", error_ptr);
+        }
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    // 获取message字段
+    cJSON *message_item = cJSON_GetObjectItemCaseSensitive(root, "message");
+    if (cJSON_IsString(message_item) && (message_item->valuestring != NULL)) {
+        // 设置label文本
+        lv_label_set_text(first_page.xiaoji, message_item->valuestring);
+    } else {
+        ESP_LOGE(TAG, "Message field is not a valid string");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Message field missing or invalid");
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+
+    // 清理JSON对象
+    cJSON_Delete(root);
+
+    // 如果需要发送响应给客户端
+    httpd_resp_sendstr(req, "Data received and processed");
+
+    return ESP_OK;
+}
+
+static const httpd_uri_t xiaoji = {
+    .uri       = "/xiaoji",
+    .method    = HTTP_POST,
+    .handler   = xiaoji_post_handler,
+    .user_ctx  = NULL
+};
+
 /* 新增热点检测处理 */
 static esp_err_t hotspot_detect_handler(httpd_req_t *req)
 {
@@ -150,6 +208,7 @@ static httpd_handle_t start_webserver(void) {
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &echo);
+        httpd_register_uri_handler(server, &xiaoji);
         return server;
     }
 
@@ -480,7 +539,99 @@ static httpd_handle_t wifi_config_start_webserver()
     return server;
 }
 
+// HTML form as a static string
+static const char html_form[] =
+    "<html>"
+    "<head>"
+    "<meta charset=\"UTF-8\">"  // 确保整个页面使用UTF-8编码
+    "</head>"
+    "<body>"
+    "<form action=\"/submit\" method=\"post\" accept-charset=\"UTF-8\">"  // 设置accept-charset属性为UTF-8
+    "输入你的句子: <input type=\"text\" name=\"sentence\"><br>"
+    "<input type=\"submit\" value=\"提交\">"
+    "</form>"
+    "</body>"
+    "</html>";
 
+// Handler for GET request to serve the HTML form
+esp_err_t form_get_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Content-Type", "text/html; charset=utf-8");
+    return httpd_resp_send(req, html_form, strlen(html_form));
+}
+
+// 新增URL解码函数
+void urldecode(char *dst, const char *src) {
+    char a, b;
+    while (*src) {
+        if ((*src == '%') &&
+            ((a = src[1]) && (b = src[2])) &&
+            (isxdigit(a) && isxdigit(b))) {
+            if (a >= 'a') a -= 'a'-'A';
+            if (a >= 'A') a -= ('A' - 10);
+            else a -= '0';
+            if (b >= 'a') b -= 'a'-'A';
+            if (b >= 'A') b -= ('A' - 10);
+            else b -= '0';
+            *dst++ = 16*a + b;
+            src += 3;
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst++ = '\0';
+}
+
+// 修改POST处理函数
+esp_err_t submit_post_handler(httpd_req_t *req) {
+    char raw_content[100] = {0};
+    char decoded_content[100] = {0};
+    
+    // 接收原始数据
+    int ret = httpd_req_recv(req, raw_content, sizeof(raw_content)-1);
+    if (ret <= 0) return ESP_FAIL;
+    raw_content[ret] = '\0';
+
+    // URL解码
+    urldecode(decoded_content, raw_content);
+    
+    // 跳过参数名（"sentence="）
+    char *payload = strchr(decoded_content, '=');
+    if (payload) {
+        payload++; // 跳过等号
+        ESP_LOGI(TAG, "解码后内容: %s", payload);
+        lv_label_set_text(first_page.xiaoji, payload);
+    }
+
+    httpd_resp_sendstr(req, "数据接收成功");
+    return ESP_OK;
+}
+
+static const httpd_uri_t form_get = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = form_get_handler,
+    .user_ctx  = NULL
+};
+
+static const httpd_uri_t submit_post = {
+    .uri       = "/submit",
+    .method    = HTTP_POST,
+    .handler   = submit_post_handler,
+    .user_ctx  = NULL
+};
+
+void wait_for_network() {
+    esp_netif_ip_info_t ip_info;
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    
+    while(1) {
+        if (esp_netif_get_ip_info(netif, &ip_info) == ESP_OK && 
+            ip_info.ip.addr != IPADDR_ANY) {
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
 void wifi_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data)
 {
@@ -508,7 +659,21 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGE(TAG, "Disconnected from WiFi, reason: %d", disconn->reason);
         esp_wifi_connect();
     }
+    else if (WIFI_EVENT_STA_CONNECTED == event_id && event_base == WIFI_EVENT)
+    {
+        wait_for_network();
+        // Start the webserver
+        httpd_handle_t server = NULL;
+        httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+
+        if (httpd_start(&server, &config) == ESP_OK) {
+            httpd_register_uri_handler(server, &form_get);
+            httpd_register_uri_handler(server, &submit_post);
+        }
+
+    }
 }
+
 
 void esp_http_server_task(void *pvParameters) {
     nvs_flash_init();
